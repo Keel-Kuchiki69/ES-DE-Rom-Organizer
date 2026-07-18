@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+########################################
+# ES-DE ROM Organizer
+########################################
+
+ROM_EXTENSIONS=(
+    iso bin cue chd
+    rvz gcz wbfs
+    cso pbp elf
+    3ds cci cia
+    nds
+    gba gb gbc
+    nes
+    sfc smc
+    n64 z64 v64
+    xci nsp
+    dkey
+)
+
+archives=0
+roms=0
+removed_archives=0
+removed_dirs=0
+
+########################################
+# Funções
+########################################
+
+log() {
+    printf "\033[1;34m==>\033[0m %s\n" "$1"
+}
+
+success() {
+    printf "\033[1;32m✔\033[0m %s\n" "$1"
+}
+
+warning() {
+    printf "\033[1;33m⚠\033[0m %s\n" "$1"
+}
+
+confirm() {
+    read -rp "$1 [Y/n] " resp
+    [[ "${resp,,}" == "y" || "${resp,,}" == "yes" || "${resp,,}" == "" || "${resp,,}" == "YES" || "${resp,,}" == "S" || "${resp,,}" == "s" || "${resp,,}" == "sim" || "${resp,,}" == "SIM" ]]
+}
+
+########################################
+# Verificar dependências
+########################################
+
+for cmd in unzip 7z unrar tar find mv; do
+    command -v "$cmd" >/dev/null || {
+        echo "Dependência ausente: $cmd"
+        exit 1
+    }
+done
+
+########################################
+# Encontrar arquivos compactados
+########################################
+
+log "Procurando arquivos compactados..."
+
+mapfile -d '' FILES < <(
+find . -type f \( \
+    -iname "*.zip" \
+    -o -iname "*.7z" \
+    -o -iname "*.rar" \
+    -o -iname "*.tar" \
+    -o -iname "*.tar.gz" \
+    -o -iname "*.tgz" \
+    -o -iname "*.tar.xz" \
+    -o -iname "*.tar.bz2" \
+\) -print0
+)
+
+if [[ ${#FILES[@]} -eq 0 ]]; then
+    warning "Nenhum arquivo compactado encontrado."
+    exit 0
+fi
+
+if [[ ${#FILES[@]} -eq 0 ]]; then
+    warning "Nenhum arquivo compactado encontrado."
+    exit 0
+fi
+
+log "Encontrados ${#FILES[@]} arquivo(s):"
+
+for f in "${FILES[@]}"; do
+    printf "  • %s\n" "$(basename "$f")"
+done
+
+confirm "Deseja extrair esses arquivos?" || {
+    warning "Operação cancelada."
+    exit 0
+}
+
+########################################
+# Extração
+########################################
+
+for file in "${FILES[@]}"; do
+
+    log "Extraindo $(basename "$file")"
+
+    case "${file,,}" in
+
+        *.zip) unzip -qq -o "$file" -d . ;;
+        *.7z) 7z x -y "$file" >/dev/null ;;
+        *.rar) unrar x -o+ "$file" >/dev/null ;;
+        *.tar) tar xf "$file" ;;
+        *.tar.gz|*.tgz) tar xzf "$file" ;;
+        *.tar.xz) tar xJf "$file" ;;
+        *.tar.bz2) tar xjf "$file" ;;
+
+    esac
+
+    rm "$file"
+
+    ((++archives))
+    ((++removed_archives))
+
+done
+
+########################################
+# Procurar ROMs
+########################################
+
+log "Organizando ROMs..."
+
+find_expr=()
+
+for ext in "${ROM_EXTENSIONS[@]}"; do
+    find_expr+=( -iname "*.${ext}" -o )
+done
+
+unset 'find_expr[${#find_expr[@]}-1]'
+
+mapfile -d '' ROM_FILES < <(
+    find . -mindepth 2 -type f \( "${find_expr[@]}" \) -print0
+)
+
+if [[ ${#ROM_FILES[@]} -eq 0 ]]; then
+    warning "Nenhuma ROM encontrada."
+else
+
+    log "Encontradas ${#ROM_FILES[@]} ROM(s)."
+    confirm "Deseja mover essas ROMs para a pasta principal?" || {
+        warning "Movimentação cancelada."
+        exit 0
+    }
+
+    for file in "${ROM_FILES[@]}"; do
+
+        dest="./$(basename "$file")"
+
+        if [[ ! -e "$dest" ]]; then
+            mv "$file" .
+            ((++roms))
+        fi
+
+    done
+
+fi
+
+########################################
+# Remover pastas vazias
+########################################
+
+log "Removendo pastas vazias..."
+
+while :; do
+
+    mapfile -t EMPTY_DIRS < <(
+        find . -depth -mindepth 1 -type d -empty
+    )
+
+    [[ ${#EMPTY_DIRS[@]} -eq 0 ]] && break
+
+    for dir in "${EMPTY_DIRS[@]}"; do
+        rmdir "$dir" 2>/dev/null || true
+        ((++removed_dirs))
+    done
+
+done
+
+########################################
+# Resumo
+########################################
+
+echo
+echo "=================================="
+echo "          CONCLUÍDO"
+echo "=================================="
+
+printf "%-25s %5d\n" "Arquivos extraídos:" "$archives"
+printf "%-25s %5d\n" "Compactados removidos:" "$removed_archives"
+printf "%-25s %5d\n" "ROMs organizadas:" "$roms"
+printf "%-25s %5d\n" "Pastas removidas:" "$removed_dirs"
+
+echo
+success "Tudo pronto!"
