@@ -57,7 +57,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/Keel-Kuchiki69/ES-DE-Rom-Organizer.git
-cd rom-organizer
+cd ES-DE-Rom-Organizer
 ```
 
 Make the script executable:
