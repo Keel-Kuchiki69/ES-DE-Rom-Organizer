@@ -86,14 +86,8 @@ Navigate to the directory containing your downloaded ROM archives.
 
 Example:
 
-```text
-ROMs/
-└── Minerva_Myrient/
-    └── Redump/
-        └── Sony - PlayStation 2/
-            ├── God of War.zip
-            ├── Black.zip
-            └── Gran Turismo 4.zip
+```bash
+cd ~/Downloads/Roms
 ```
 
 Run:
