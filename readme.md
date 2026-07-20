@@ -128,6 +128,7 @@ Most Linux distributions already provide these packages through their package ma
 
 Planned features:
 
+* [ ] Automatic installer
 * [ ] Interactive console selection
 * [ ] Automatic destination folders
 * [ ] Multi-selection of archives
